@@ -33,6 +33,20 @@ function Get-DefaultConfig {
         SevenZipPath        = ''                       # Auto-detected if blank
         # --- Case / naming -----------------------------------------------------
         CasePrefix          = 'CMS-A'                  # Enforced prefix for case numbers
+        NameLeadingField    = ''                       # '' (default order: CMS, OP, Pass) | 'CMS' | 'OP' | 'PASS' -
+                                                        # forces that identifier to the front of the generated
+                                                        # file/folder name, ahead of whichever others are supplied.
+        RequireCmsCase      = $false                   # If true, the CMS case field must ADDITIONALLY always be
+                                                        # filled in - on top of, not instead of, the base "CMS case
+                                                        # or OP name (one of the two)" rule, which always applies
+                                                        # and can't be turned off - see Get-TransferName in
+                                                        # Start-Auto4950.ps1.
+        RequireOpName       = $false                   # Same, for the OP name field.
+        RequirePassNumber   = $false                   # Same, for the Pass number field (which the base rule
+                                                        # never counts on its own either way).
+        LabelCmsCase        = 'CMS Case Number'        # Display label for the CMS case field, main app + Kiosk Mode.
+        LabelOpName         = 'OP Name'                # Display label for the OP name field (main app only).
+        LabelPassNumber     = 'Pass Number'            # Display label for the Pass number field, main app + Kiosk Mode.
         # --- Compression -------------------------------------------------------
         CompressionLevel    = 5                        # 0 (store) .. 9 (ultra)
         VolumeSizeMB        = 2048                      # Split archives into volumes of this size (MB). 0 = no split

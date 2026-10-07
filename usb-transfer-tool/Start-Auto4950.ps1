@@ -24,7 +24,7 @@ param()
 # Bootstrapping
 # ----------------------------------------------------------------------------
 $ErrorActionPreference = 'Stop'
-$script:AppVersion = '6.13'
+$script:AppVersion = '6.14'
 $scriptRoot   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $coreModule   = Join-Path $scriptRoot 'Modules\Auto4950.Core.psm1'
 $workerModule = Join-Path $scriptRoot 'Modules\Auto4950.Worker.psm1'
@@ -355,7 +355,7 @@ $script:QueueRunning = $false   # true once "Start Queue" is clicked, until stop
           </Grid.RowDefinitions>
 
           <StackPanel Grid.Row="0">
-            <TextBlock Text="CMS CASE NUMBER" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+            <TextBlock x:Name="LblCaseLabel" Text="CMS CASE NUMBER" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
             <TextBox x:Name="TxtCase" Text="CMS-A" Padding="6" FontSize="14"/>
             <TextBlock x:Name="LblCaseHint" Text="Part of the folder / file name. Must start with the case prefix." Foreground="{DynamicResource Muted}" FontSize="11"/>
           </StackPanel>
@@ -363,12 +363,12 @@ $script:QueueRunning = $false   # true once "Start Queue" is clicked, until stop
           <Grid Grid.Row="1" Margin="0,8,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Margin="0,0,6,0">
-              <TextBlock Text="OP NAME (UPPERCASE)" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+              <TextBlock x:Name="LblOpLabel" Text="OP NAME (UPPERCASE)" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
               <TextBox x:Name="TxtOp" Padding="6" FontSize="14" CharacterCasing="Upper"/>
               <TextBlock x:Name="LblOpHint" Text="UPPERCASE. Optional." Foreground="{DynamicResource Muted}" FontSize="11"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Margin="6,0,0,0">
-              <TextBlock Text="PASS NUMBER" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+              <TextBlock x:Name="LblPassLabel" Text="PASS NUMBER" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
               <TextBox x:Name="TxtPass" Padding="6" FontSize="14"/>
               <TextBlock x:Name="LblPassHint" Text="Operator's pass no. Optional." Foreground="{DynamicResource Muted}" FontSize="11"/>
             </StackPanel>
@@ -434,8 +434,35 @@ $script:QueueRunning = $false   # true once "Start Queue" is clicked, until stop
                 <Button x:Name="BtnBrowseStage" Content="Browse..." DockPanel.Dock="Right" Margin="6,2,0,8" Foreground="#FF202020"/>
                 <TextBox x:Name="OptStage"/>
               </DockPanel>
-              <TextBlock Text="CMS case prefix"/>
+              <TextBlock x:Name="LblPrefixOpt" Text="CMS case prefix"/>
               <TextBox x:Name="OptPrefix"/>
+
+              <Separator Margin="0,6"/>
+              <TextBlock Text="IDENTIFIER NAMING" FontWeight="Bold" Foreground="{DynamicResource Accent}" Margin="0,2,0,4"/>
+              <TextBlock Text="Which identifier leads the generated file/folder name, if supplied." Foreground="{DynamicResource Muted}" FontSize="{DynamicResource FSTiny}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+              <ComboBox x:Name="OptLeadField">
+                <ComboBoxItem Content="Default order (CMS, OP, Pass)"/>
+                <ComboBoxItem Content="CMS case leads"/>
+                <ComboBoxItem Content="OP name leads"/>
+                <ComboBoxItem Content="Pass number leads"/>
+              </ComboBox>
+              <TextBlock Text="Labels and requirements" FontWeight="Bold" Margin="0,8,0,4"/>
+              <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" x:Name="OptLabelCms" Margin="0,0,6,0"/>
+                <CheckBox Grid.Column="1" x:Name="OptRequireCms" Content="Required" VerticalAlignment="Center"/>
+              </Grid>
+              <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" x:Name="OptLabelOp" Margin="0,0,6,0"/>
+                <CheckBox Grid.Column="1" x:Name="OptRequireOp" Content="Required" VerticalAlignment="Center"/>
+              </Grid>
+              <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" x:Name="OptLabelPass" Margin="0,0,6,0"/>
+                <CheckBox Grid.Column="1" x:Name="OptRequirePass" Content="Required" VerticalAlignment="Center"/>
+              </Grid>
+              <TextBlock Text="A label also replaces that field's name on the main screen and in prompts. &quot;CMS case or OP name&quot; (at least one) is always required and can't be turned off; checking &quot;Required&quot; on any of the three adds that field as an ADDITIONAL requirement on top of the base rule." Foreground="{DynamicResource Muted}" FontSize="{DynamicResource FSTiny}" TextWrapping="Wrap" Margin="0,0,0,6"/>
 
               <Separator Margin="0,6"/>
               <TextBlock Text="SIZING / COMPRESSION" FontWeight="Bold" Foreground="{DynamicResource Accent}" Margin="0,2,0,4"/>
@@ -1195,11 +1222,40 @@ function Add-BrowsedFiles {
 # ----------------------------------------------------------------------------
 # Options panel  <->  config  (all settings live on the main screen)
 # ----------------------------------------------------------------------------
+function Update-IdentifierLabels {
+    <#
+    .SYNOPSIS Reflect the configured CMS/OP/Pass labels and required-ness on the main screen.
+    .DESCRIPTION
+        Called after config loads and after Save Options, so a renamed or
+        newly-required field shows up immediately - no restart needed, same
+        as Dark Mode/Font Size elsewhere in this app.
+    #>
+    $ctrl.LblCaseLabel.Text = $config.LabelCmsCase.ToUpper()
+    $ctrl.LblOpLabel.Text   = "$($config.LabelOpName.ToUpper()) (UPPERCASE)"
+    $ctrl.LblPassLabel.Text = $config.LabelPassNumber.ToUpper()
+    $ctrl.LblPrefixOpt.Text = "$($config.LabelCmsCase) prefix"
+
+    $caseReq = [bool]$config.RequireCmsCase
+    $opReq   = [bool]$config.RequireOpName
+    $passReq = [bool]$config.RequirePassNumber
+    $ctrl.LblCaseHint.Text = "Part of the folder / file name. Must start with the case prefix.$(if ($caseReq) { ' Required.' })"
+    $ctrl.LblOpHint.Text   = "UPPERCASE. $(if ($opReq) { 'Required.' } else { 'Optional.' })"
+    $ctrl.LblPassHint.Text = "Operator's pass no. $(if ($passReq) { 'Required.' } else { 'Optional.' })"
+}
+
 function Set-OptionsFromConfig {
     $ctrl.OptNet.Text       = $config.NetworkShare
     $ctrl.Opt7z.Text        = $config.SevenZipPath
     $ctrl.OptStage.Text     = $config.StagingFolder
     $ctrl.OptPrefix.Text    = $config.CasePrefix
+    $leadIndex = switch ($config.NameLeadingField) { 'CMS' {1} 'OP' {2} 'PASS' {3} default {0} }
+    $ctrl.OptLeadField.SelectedIndex = $leadIndex
+    $ctrl.OptLabelCms.Text    = $config.LabelCmsCase
+    $ctrl.OptRequireCms.IsChecked  = [bool]$config.RequireCmsCase
+    $ctrl.OptLabelOp.Text     = $config.LabelOpName
+    $ctrl.OptRequireOp.IsChecked   = [bool]$config.RequireOpName
+    $ctrl.OptLabelPass.Text   = $config.LabelPassNumber
+    $ctrl.OptRequirePass.IsChecked = [bool]$config.RequirePassNumber
     $ctrl.OptVolume.Text    = $(if ([int]$config.VolumeSizeMB -le 0) { 'No split (single file)' } else { [string]([int]$config.VolumeSizeMB) })
     $ctrl.OptXferInstant.IsChecked    = ($config.TransferMode -eq 'Instant')
     $ctrl.OptXferOnComplete.IsChecked = ($config.TransferMode -ne 'Instant')
@@ -1217,6 +1273,7 @@ function Set-OptionsFromConfig {
     $ctrl.OptSoundError.Text  = $config.SoundErrorPath
     $ctrl.OptDarkMode.IsChecked = [bool]$config.DarkMode
     foreach ($it in $ctrl.OptFontSize.Items) { if ($it.Tag -eq $config.FontSize) { $ctrl.OptFontSize.SelectedItem = $it } }
+    Update-IdentifierLabels
 }
 
 function Sync-OptionsToConfig {
@@ -1225,6 +1282,13 @@ function Sync-OptionsToConfig {
     $config.SevenZipPath  = $ctrl.Opt7z.Text.Trim()
     $config.StagingFolder = $ctrl.OptStage.Text.Trim()
     if ($ctrl.OptPrefix.Text.Trim()) { $config.CasePrefix = $ctrl.OptPrefix.Text.Trim() }
+    $config.NameLeadingField = switch ($ctrl.OptLeadField.SelectedIndex) { 1 {'CMS'} 2 {'OP'} 3 {'PASS'} default {''} }
+    $config.LabelCmsCase     = $(if ($ctrl.OptLabelCms.Text.Trim())  { $ctrl.OptLabelCms.Text.Trim() }  else { 'CMS Case Number' })
+    $config.LabelOpName      = $(if ($ctrl.OptLabelOp.Text.Trim())   { $ctrl.OptLabelOp.Text.Trim() }   else { 'OP Name' })
+    $config.LabelPassNumber  = $(if ($ctrl.OptLabelPass.Text.Trim()) { $ctrl.OptLabelPass.Text.Trim() } else { 'Pass Number' })
+    $config.RequireCmsCase    = [bool]$ctrl.OptRequireCms.IsChecked
+    $config.RequireOpName     = [bool]$ctrl.OptRequireOp.IsChecked
+    $config.RequirePassNumber = [bool]$ctrl.OptRequirePass.IsChecked
     $config.VolumeSizeMB     = Parse-SplitMB ([string]$ctrl.OptVolume.Text)
     $config.TransferMode     = if ($ctrl.OptXferInstant.IsChecked) { 'Instant' } else { 'OnComplete' }
     $config.CompressionLevel = [int]$ctrl.OptLevel.Value
@@ -1248,6 +1312,8 @@ function Save-Options {
     Sync-OptionsToConfig
     Save-A4950Config -Config $config | Out-Null
     Update-Footer
+    Update-IdentifierLabels
+    Update-NamePreview
     Add-LogLine 'Options saved to config.json.' 'OK'
     if ($config.Password) { Add-LogLine 'Archive password set (avoid storing sensitive passwords in plain config).' 'WARN' }
     Hide-OptionsPanel
@@ -1381,11 +1447,17 @@ function Set-QuickTransfer {
 }
 
 # ----------------------------------------------------------------------------
-# Transfer identifier: CMS case (validated) and/or OP name (UPPERCASE) - one of
-# the two is required. Pass no. is always optional and never satisfies the
-# requirement on its own. The folder + archive names are built from whichever
-# of the three are supplied, joined by '_' (so entering both CMS case and OP
-# name uses both in the name).
+# Transfer identifier: CMS case (validated) and/or OP name (UPPERCASE) - at
+# least one of the two is ALWAYS required, unconditionally - this can't be
+# configured away, so a transfer never goes out identified by neither. Pass
+# no. is optional by default and never satisfies that base rule on its own.
+# Options -> IDENTIFIER NAMING can add to it: RequireCmsCase/RequireOpName/
+# RequirePassNumber each independently make that one field additionally
+# mandatory (e.g. turning on RequirePassNumber still needs CMS or OP too -
+# it doesn't let them be skipped), and NameLeadingField forces one of the
+# three to the front of the generated name regardless of entry order. The
+# folder + archive names are built from whichever of the three are supplied,
+# joined by '_'.
 # ----------------------------------------------------------------------------
 function Get-TransferName {
     $case = $ctrl.TxtCase.Text.Trim()
@@ -1396,20 +1468,47 @@ function Get-TransferName {
     $parts = @(); $kinds = @(); $errs = @()
     if ($caseGiven) {
         if (Test-A4950CaseNumber -CaseNumber $case -Prefix $config.CasePrefix) { $parts += $case; $kinds += 'CMS' }
-        else { $errs += "CMS case must start with '$($config.CasePrefix)' and include an identifier." }
+        else { $errs += "$($config.LabelCmsCase) must start with '$($config.CasePrefix)' and include an identifier." }
     }
     if ($op) {
         if (Test-A4950OpName -Name $op) { $parts += $op; $kinds += 'OP' }
-        else { $errs += 'OP name must be UPPERCASE.' }
+        else { $errs += "$($config.LabelOpName) must be UPPERCASE." }
     }
     if ($pass) {
         $parts += ('PASS' + (New-A4950CaseFolderName -CaseNumber $pass)); $kinds += 'PASS'
     }
 
     if ($errs.Count) { return [pscustomobject]@{ Ok = $false; Name = $null; Kind = ''; Reason = ($errs -join ' ') } }
-    if (-not $caseGiven -and -not $op) {
-        return [pscustomobject]@{ Ok = $false; Name = $null; Kind = ''; Reason = "Enter a CMS case (e.g. $($config.CasePrefix)12345) or an OP name (UPPERCASE). A pass number alone is not enough." }
+
+    # Independently-configurable per-field requirements, checked first since
+    # they give the more specific message when they apply.
+    $missing = @()
+    if ($config.RequireCmsCase    -and -not $caseGiven) { $missing += $config.LabelCmsCase }
+    if ($config.RequireOpName     -and -not $op)        { $missing += $config.LabelOpName }
+    if ($config.RequirePassNumber -and -not $pass)       { $missing += $config.LabelPassNumber }
+    if ($missing.Count) {
+        $verb = if ($missing.Count -gt 1) { 'are' } else { 'is' }
+        return [pscustomobject]@{ Ok = $false; Name = $null; Kind = ''; Reason = "$($missing -join ', ') $verb required." }
     }
+
+    # Base rule - always on, never configurable away: at least one of CMS
+    # case / OP name, so a transfer can never go out identified by neither.
+    # Only reached here if nothing explicitly required above was missing
+    # (e.g. neither RequireCmsCase nor RequireOpName is set, and both are
+    # empty) - RequirePassNumber alone never satisfies this on its own.
+    if (-not $caseGiven -and -not $op) {
+        return [pscustomobject]@{ Ok = $false; Name = $null; Kind = ''; Reason = "Enter a $($config.LabelCmsCase) (e.g. $($config.CasePrefix)12345) or an $($config.LabelOpName) (UPPERCASE). A $($config.LabelPassNumber.ToLower()) alone is not enough." }
+    }
+
+    # Force the configured field to the front, if it was actually supplied -
+    # index-based so it's safe even if two parts happen to share a value.
+    if ($config.NameLeadingField -and ($config.NameLeadingField -in $kinds)) {
+        $leadIdx = [array]::IndexOf($kinds, $config.NameLeadingField)
+        $order = @($leadIdx) + @(0..($kinds.Count - 1) | Where-Object { $_ -ne $leadIdx })
+        $parts = @($order | ForEach-Object { $parts[$_] })
+        $kinds = @($order | ForEach-Object { $kinds[$_] })
+    }
+
     return [pscustomobject]@{ Ok = $true; Name = ($parts -join '_'); Kind = ($kinds -join '+'); Reason = '' }
 }
 
@@ -1949,11 +2048,11 @@ $usbTimer.Add_Tick({
         if ($ctrl.OptPrompt.IsChecked) {
             $window.Activate()
             $resp = [System.Windows.MessageBox]::Show(
-                "A USB drive ($drive) has been connected and scanned.`n`nReview the folders/files in the middle panel and choose what to transfer.`n`nEnter a CMS case or OP name and start now?",
+                "A USB drive ($drive) has been connected and scanned.`n`nReview the folders/files in the middle panel and choose what to transfer.`n`nEnter a $($config.LabelCmsCase) or $($config.LabelOpName) and start now?",
                 'USB drive detected', 'YesNo', 'Question')
             if ($resp -eq 'Yes') {
                 $ctrl.TxtCase.Focus(); $ctrl.TxtCase.SelectAll()
-                Add-LogLine 'Select folders/files, enter a CMS case or OP name, then press "Start Capture".' 'INFO'
+                Add-LogLine "Select folders/files, enter a $($config.LabelCmsCase) or $($config.LabelOpName), then press `"Start Capture`"." 'INFO'
             }
         }
     }

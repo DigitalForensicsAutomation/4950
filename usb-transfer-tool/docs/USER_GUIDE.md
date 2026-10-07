@@ -112,6 +112,19 @@ UI.
   pass number you supplied, joined together, plus the job's own timestamp.
   There is no destination sub-folder - see "Destination naming" below. Each
   hint highlights until its value is valid.
+- Options → **IDENTIFIER NAMING** can change this behaviour:
+  - **Leading field** forces one of CMS case / OP name / pass number to the
+    front of the file name, keeping the other two in their usual relative
+    order behind it.
+  - **Require CMS case / Require OP name / Require pass number** each make
+    that one field individually mandatory. These stack on top of the base
+    "CMS case or OP name" rule above rather than replacing it — a transfer
+    always still needs a CMS case or an OP name even if only the pass number
+    is marked required, since this is a chain-of-custody tool and every
+    transfer must stay traceable to a case or an operator.
+  - **Labels** rename each field everywhere it's shown on screen (field
+    headers, hints, the Options panel itself) and in every validation
+    message, without changing what's actually stored in the file name.
 
 ### Options panel (all settings, on the main screen)
 Everything is editable on the right-hand **Options** panel — destination,
@@ -421,6 +434,9 @@ re-run `Setup.ps1`). All values persist to `config.json`.
 | Start / Finish / Error sound | Optional `.wav` per event; blank = standard Windows sound |
 | Text size | Small / Medium (default) / Large / Extra Large |
 | Dark Mode | On (default) for the dark theme, off for light |
+| Leading field | Force CMS case / OP name / pass number to lead the file name; default = natural order |
+| Require CMS case / OP name / pass number | Make any of the three individually mandatory, in addition to the base CMS-or-OP rule |
+| CMS case / OP name / Pass number label | Rename each field's on-screen label and validation wording; defaults "CMS Case Number" / "OP Name" / "Pass Number" |
 
 Local copies are always kept in the staging folder (no setting for this) -
 see "Temp cleanup" above for how to remove them.
